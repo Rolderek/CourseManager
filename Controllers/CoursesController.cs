@@ -1,15 +1,20 @@
 ﻿using CourseManager.DTOs.Courses;
+using CourseManager.DTOs.Enrollments;
+using CourseManager.DTOs.Schedule;
 using CourseManager.Services;
 using Microsoft.AspNetCore.Mvc;
-using CourseManager.DTOs.Enrollments;
+using CourseManager.DTOs.Schedule;
 
 namespace CourseManager.Controllers
 {
+    //CHECK THE NEW PART!!!!
+
     [ApiController]
     [Route("api/courses")]
     public class CoursesController : ControllerBase
     {
         private readonly CourseService _courseService;
+        private readonly EnrollmentService _enrollmentService;
 
         public CoursesController(CourseService courseService)
         {
@@ -85,6 +90,77 @@ namespace CourseManager.Controllers
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        private readonly ScheduleService _scheduleService;
+
+        // Update the constructor:
+        public CoursesController(CourseService courseService, EnrollmentService enrollmentService, ScheduleService scheduleService)
+        {
+            _courseService = courseService;
+            _enrollmentService = enrollmentService;
+            _scheduleService = scheduleService;
+        }
+
+        /// <summary>
+        /// Add schedule entries to a course.
+        /// For WEEKLY courses: provide exactly one entry (repeats every week for 14 weeks).
+        /// For BLOCK courses: provide one entry per session.
+        /// </summary>
+        [HttpPost("{courseId}/schedule")]
+        public async Task<IActionResult> AddSchedule(int courseId, [FromBody] AddScheduleDto dto)
+        {
+            try
+            {
+                var result = await _scheduleService.AddScheduleAsync(courseId, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Modify schedule entries for a course (full replacement).
+        /// For WEEKLY courses: provide exactly one entry.
+        /// For BLOCK courses: provide all sessions again.
+        /// </summary>
+        [HttpPost("{courseId}/schedule/modify")]
+        public async Task<IActionResult> ModifySchedule(int courseId, [FromBody] ModifyScheduleDto dto)
+        {
+            try
+            {
+                var result = await _scheduleService.ModifyScheduleAsync(courseId, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Get the schedule for a course</summary>
+        [HttpGet("{courseId}/schedule")]
+        public async Task<IActionResult> GetSchedule(int courseId)
+        {
+            try
+            {
+                var result = await _scheduleService.GetScheduleAsync(courseId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
             }
         }
     }

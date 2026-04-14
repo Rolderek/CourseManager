@@ -12,6 +12,7 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<SubjectService>();
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<EnrollmentService>();
+builder.Services.AddScoped<ScheduleService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
