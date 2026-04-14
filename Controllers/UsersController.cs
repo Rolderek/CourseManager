@@ -1,6 +1,7 @@
 ﻿using CourseManager.DTOs.Users;
 using CourseManager.Services;
 using Microsoft.AspNetCore.Mvc;
+using CourseManager.DTOs.Enrollments;
 
 
 //need to check again, I'm not sure this is fine

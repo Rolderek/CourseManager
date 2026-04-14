@@ -1,6 +1,7 @@
 ﻿using CourseManager.DTOs.Subjects;
 using CourseManager.Services;
 using Microsoft.AspNetCore.Mvc;
+using CourseManager.DTOs.Enrollments;
 
 namespace CourseManager.Controllers
 {
