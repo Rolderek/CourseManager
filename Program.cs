@@ -13,6 +13,11 @@ builder.Services.AddScoped<SubjectService>();
 builder.Services.AddScoped<CourseService>();
 builder.Services.AddScoped<EnrollmentService>();
 builder.Services.AddScoped<ScheduleService>();
+builder.Services.AddScoped<NotificationService>();
+
+
+builder.Services.AddHostedService<CourseManager.BackgroundServices.NotificationBackgroundService>();
+
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

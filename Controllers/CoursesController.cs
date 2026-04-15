@@ -3,22 +3,24 @@ using CourseManager.DTOs.Enrollments;
 using CourseManager.DTOs.Schedule;
 using CourseManager.Services;
 using Microsoft.AspNetCore.Mvc;
-using CourseManager.DTOs.Schedule;
 
+
+//THERE WAS TWO CONSTRUCTOR, THIS WAS REPAIRED :D
 namespace CourseManager.Controllers
 {
-    //CHECK THE NEW PART!!!!
-
     [ApiController]
     [Route("api/courses")]
     public class CoursesController : ControllerBase
     {
         private readonly CourseService _courseService;
         private readonly EnrollmentService _enrollmentService;
+        private readonly ScheduleService _scheduleService;
 
-        public CoursesController(CourseService courseService)
+        public CoursesController(CourseService courseService, EnrollmentService enrollmentService, ScheduleService scheduleService)
         {
             _courseService = courseService;
+            _enrollmentService = enrollmentService;
+            _scheduleService = scheduleService;
         }
 
         /// <summary>Create a new course</summary>
@@ -93,14 +95,38 @@ namespace CourseManager.Controllers
             }
         }
 
-        private readonly ScheduleService _scheduleService;
-
-        // Update the constructor:
-        public CoursesController(CourseService courseService, EnrollmentService enrollmentService, ScheduleService scheduleService)
+        /// <summary>Change a student from one course to another</summary>
+        [HttpPost("change")]
+        public async Task<IActionResult> ChangeCourse([FromBody] ChangeCourseDto dto)
         {
-            _courseService = courseService;
-            _enrollmentService = enrollmentService;
-            _scheduleService = scheduleService;
+            try
+            {
+                var result = await _enrollmentService.ChangeCourseAsync(dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>List all students enrolled in a course</summary>
+        [HttpGet("{courseId}/students")]
+        public async Task<IActionResult> GetCourseStudents(int courseId)
+        {
+            try
+            {
+                var result = await _enrollmentService.GetCourseStudentsAsync(courseId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
         }
 
         /// <summary>
