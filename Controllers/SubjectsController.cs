@@ -110,5 +110,17 @@ namespace CourseManager.Controllers
                 return BadRequest(new { error = ex.Message });
             }
         }
+
+        /*
+         * amik még hiányoznak:
+            • Tárgyra feliratkozás (POST /api/subjects/{subjectId}/register)
+            o Input: { studentId, courseIds }
+            o Validálás: A fent leírtak szerint
+            • Tárgyról lejelentkezés (POST /api/subjects/{subjectId}/unregister)
+            o Input: { studentId, semester }
+        */
+
+
+
     }
 }

@@ -26,6 +26,11 @@ namespace CourseManager.Services
             if (course == null)
                 throw new KeyNotFoundException($"Course with ID {courseId} not found.");
 
+            // Check if schedule already exists
+            if (course.ScheduleEntries.Any())
+                throw new InvalidOperationException(
+                    "Schedule already exists for this course. Use the modify endpoint to update it.");
+
             if (dto.Entries == null || dto.Entries.Count == 0)
                 throw new InvalidOperationException("At least one schedule entry must be provided.");
 
@@ -41,11 +46,6 @@ namespace CourseManager.Services
                     throw new InvalidOperationException(
                         $"EndTime must be after StartTime for entry starting at {entry.StartTime}.");
             }
-
-            // Check if schedule already exists
-            if (course.ScheduleEntries.Any())
-                throw new InvalidOperationException(
-                    "Schedule already exists for this course. Use the modify endpoint to update it.");
 
             var entries = dto.Entries.Select(e => new ScheduleEntry
             {
@@ -65,6 +65,7 @@ namespace CourseManager.Services
 
         public async Task<ScheduleResponseDto> ModifyScheduleAsync(int courseId, ModifyScheduleDto dto)
         {
+            //a másikkal összevonni, fölösleges duplikálás
             var course = await _context.Courses
                 .Include(c => c.ScheduleEntries)
                 .FirstOrDefaultAsync(c => c.Id == courseId);

@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+/*
+ * gyakorlás szempontjából SQL-ben is megírni legalább 1-2 ilyet!!!
+ */
+
 namespace CourseManager.Migrations
 {
     /// <inheritdoc />
@@ -36,9 +40,9 @@ namespace CourseManager.Migrations
                     Username = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    UserType = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UserType = table.Column<string>(type: "nvarchar(max)", nullable: false), //ez lehet int is de már mindegy, és váltó tábla, [állapot, leírás]
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    StudyMode = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    StudyMode = table.Column<string>(type: "nvarchar(max)", nullable: true) //ez lehet int is de már mindegy
                 },
                 constraints: table =>
                 {

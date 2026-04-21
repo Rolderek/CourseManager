@@ -63,6 +63,8 @@ namespace CourseManager.Services
 
         public async Task<UserResponseDto> UpdateAsync(int userId, UpdateUserDto dto)
         {
+        // a felhasználó típusát (tanár/diák) nem ellenőrizzük itt, kell e bele? Nappali/levelezőt sem tudom változtatni, kell ebele ez is?
+        // A study mode-ot érdemes lenne ide berakni a 80. sorba?
             var user = await _context.Users.FindAsync(userId);
 
             if (user == null)

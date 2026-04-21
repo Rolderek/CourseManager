@@ -5,6 +5,7 @@ using CourseManager.DTOs.Enrollments;
 
 
 //need to check again, I'm not sure this is fine
+//ezeket vállalatnál a SERVICES-ben szokták, ha végre ott fogok dolgozni meglátjuk :)
 namespace CourseManager.Controllers
 {
     [ApiController]
@@ -94,6 +95,7 @@ namespace CourseManager.Controllers
             {
                 await _userService.DeactivateAsync(userId);
                 return NoContent();
+                //itt lehetne 200-al is visszatérni
             }
             catch (KeyNotFoundException ex)
             {

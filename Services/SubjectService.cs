@@ -72,6 +72,7 @@ namespace CourseManager.Services
             if (!subject.IsActive)
                 throw new InvalidOperationException("Cannot update an inactive subject.");
 
+            //létre tudok hozni nulla kredittel, de módosítani már nem tudom, átírjuk?
             if (dto.Credits <= 0)
                 throw new InvalidOperationException("Credits must be a positive number.");
 

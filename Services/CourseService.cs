@@ -105,6 +105,7 @@ namespace CourseManager.Services
 
         public async Task<CourseResponseDto> UpdateAsync(int courseId, UpdateCourseDto dto)
         {
+            //instructor-t bele tegyük?
             var course = await _context.Courses
                 .Include(c => c.Enrollments)
                 .FirstOrDefaultAsync(c => c.Id == courseId);

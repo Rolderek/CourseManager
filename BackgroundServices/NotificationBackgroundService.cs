@@ -9,7 +9,6 @@ namespace CourseManager.BackgroundServices
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<NotificationBackgroundService> _logger;
 
-        // Check every minute ,maybe change later the time period if its needed
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
 
         public NotificationBackgroundService(
@@ -20,6 +19,7 @@ namespace CourseManager.BackgroundServices
             _logger = logger;
         }
 
+        //orchestrates, nothing else
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Notification Background Service started.");
@@ -41,26 +41,13 @@ namespace CourseManager.BackgroundServices
             _logger.LogInformation("Notification Background Service stopped.");
         }
 
+        //fetches entries, builds notifications, saves ???
         private async Task CheckAndGenerateNotificationsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var now = DateTime.Now;
-            var targetTime = now.AddMinutes(30);
-
-            // Find all schedule entries that start within the next 30-31 minutes
-            // The 1 minute window matches the check interval (if the time period will change need to change this too)
-            var upcomingEntries = await context.ScheduleEntries
-                .Include(se => se.Course)
-                    .ThenInclude(c => c.Enrollments)
-                        .ThenInclude(e => e.Student)
-                .Include(se => se.Course)
-                    .ThenInclude(c => c.CourseInstructors)
-                        .ThenInclude(ci => ci.Instructor)
-                .Where(se => se.StartTime >= targetTime
-                          && se.StartTime < targetTime.AddMinutes(1))
-                .ToListAsync();
+            var upcomingEntries = await GetUpcomingScheduleEntriesAsync(context);
 
             if (!upcomingEntries.Any()) return;
 
@@ -72,60 +59,112 @@ namespace CourseManager.BackgroundServices
 
             foreach (var entry in upcomingEntries)
             {
-                var course = entry.Course;
+                var studentNotifications = await BuildStudentNotificationsAsync(context, entry);
+                var instructorNotifications = await BuildInstructorNotificationsAsync(context, entry);
 
-                // Notify all enrolled students
-                foreach (var enrollment in course.Enrollments)
-                {
-                    // Skip if notification already sent for this user + entry
-                    var alreadyNotified = await context.Notifications.AnyAsync(n =>
-                        n.UserId == enrollment.StudentId &&
-                        n.CourseId == course.Id &&
-                        n.Message.Contains(entry.StartTime.ToString("yyyy-MM-dd HH:mm")));
-
-                    if (alreadyNotified) continue;
-
-                    notifications.Add(new Notification
-                    {
-                        UserId = enrollment.StudentId,
-                        CourseId = course.Id,
-                        Message = $"Reminder: Your course '{course.CourseCode}' starts at " +
-                                  $"{entry.StartTime:yyyy-MM-dd HH:mm} in {entry.Location ?? "TBD"}. " +
-                                  $"This notification was generated 30 minutes before the class.",
-                        GeneratedAt = now
-                    });
-                }
-
-                // Notify all instructors
-                foreach (var courseInstructor in course.CourseInstructors)
-                {
-                    var alreadyNotified = await context.Notifications.AnyAsync(n =>
-                        n.UserId == courseInstructor.InstructorId &&
-                        n.CourseId == course.Id &&
-                        n.Message.Contains(entry.StartTime.ToString("yyyy-MM-dd HH:mm")));
-
-                    if (alreadyNotified) continue;
-
-                    notifications.Add(new Notification
-                    {
-                        UserId = courseInstructor.InstructorId,
-                        CourseId = course.Id,
-                        Message = $"Reminder: You are teaching '{course.CourseCode}' at " +
-                                  $"{entry.StartTime:yyyy-MM-dd HH:mm} in {entry.Location ?? "TBD"}. " +
-                                  $"This notification was generated 30 minutes before the class.",
-                        GeneratedAt = now
-                    });
-                }
+                notifications.AddRange(studentNotifications);
+                notifications.AddRange(instructorNotifications);
             }
 
-            if (notifications.Any())
+            await SaveNotificationsAsync(context, notifications);
+        }
+
+        //gets schedule entries starting in ~30 minutes
+        private async Task<List<ScheduleEntry>> GetUpcomingScheduleEntriesAsync(AppDbContext context)
+        {
+            var targetTime = DateTime.Now.AddMinutes(30);
+
+            return await context.ScheduleEntries
+                .Include(se => se.Course)
+                    .ThenInclude(c => c.Enrollments)
+                        .ThenInclude(e => e.Student)
+                .Include(se => se.Course)
+                    .ThenInclude(c => c.CourseInstructors)
+                        .ThenInclude(ci => ci.Instructor)
+                .Where(se => se.StartTime >= targetTime
+                          && se.StartTime < targetTime.AddMinutes(1))
+                .ToListAsync();
+        }
+
+        //creates notification records for students
+        private async Task<List<Notification>> BuildStudentNotificationsAsync(
+            AppDbContext context, ScheduleEntry entry)
+        {
+            var notifications = new List<Notification>();
+
+            foreach (var enrollment in entry.Course.Enrollments)
             {
-                context.Notifications.AddRange(notifications);
-                await context.SaveChangesAsync();
+                if (await IsAlreadyNotifiedAsync(context, enrollment.StudentId, entry))
+                    continue;
 
-                _logger.LogInformation(
-                    "Generated {Count} notifications.", notifications.Count);
+                notifications.Add(CreateNotification(
+                    userId: enrollment.StudentId,
+                    courseId: entry.Course.Id,
+                    message: $"Reminder: Your course '{entry.Course.CourseCode}' starts at " +
+                             $"{entry.StartTime:yyyy-MM-dd HH:mm} in {entry.Location ?? "TBD"}. " +
+                             $"This notification was generated 30 minutes before the class."
+                ));
             }
+
+            return notifications;
+        }
+
+        //creates notification records for instructors
+
+        private async Task<List<Notification>> BuildInstructorNotificationsAsync(
+            AppDbContext context, ScheduleEntry entry)
+        {
+            var notifications = new List<Notification>();
+
+            foreach (var courseInstructor in entry.Course.CourseInstructors)
+            {
+                if (await IsAlreadyNotifiedAsync(context, courseInstructor.InstructorId, entry))
+                    continue;
+
+                notifications.Add(CreateNotification(
+                    userId: courseInstructor.InstructorId,
+                    courseId: entry.Course.Id,
+                    message: $"Reminder: You are teaching '{entry.Course.CourseCode}' at " +
+                             $"{entry.StartTime:yyyy-MM-dd HH:mm} in {entry.Location ?? "TBD"}. " +
+                             $"This notification was generated 30 minutes before the class."
+                ));
+            }
+
+            return notifications;
+        }
+
+        // returns true if notification already exists
+        private async Task<bool> IsAlreadyNotifiedAsync(
+            AppDbContext context, int userId, ScheduleEntry entry)
+        {
+            return await context.Notifications.AnyAsync(n =>
+                n.UserId == userId &&
+                n.CourseId == entry.Course.Id &&
+                n.Message.Contains(entry.StartTime.ToString("yyyy-MM-dd HH:mm")));
+        }
+
+        // single Notification object
+        private Notification CreateNotification(int userId, int courseId, string message)
+        {
+            return new Notification
+            {
+                UserId = userId,
+                CourseId = courseId,
+                Message = message,
+                GeneratedAt = DateTime.Now
+            };
+        }
+
+        //persists notifications and logs the result
+        private async Task SaveNotificationsAsync(
+            AppDbContext context, List<Notification> notifications)
+        {
+            if (!notifications.Any()) return;
+
+            context.Notifications.AddRange(notifications);
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation("Generated {Count} notifications.", notifications.Count);
         }
     }
 }
