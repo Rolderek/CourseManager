@@ -42,6 +42,8 @@ namespace CourseManager.BackgroundServices
         }
 
         //fetches entries, builds notifications, saves ???
+        /*
+         //old one:
         private async Task CheckAndGenerateNotificationsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
@@ -61,12 +63,49 @@ namespace CourseManager.BackgroundServices
             {
                 var studentNotifications = await BuildStudentNotificationsAsync(context, entry);
                 var instructorNotifications = await BuildInstructorNotificationsAsync(context, entry);
-
+                //ne várják meg egymást, átalakítani!
+                //await task when all-al, 
                 notifications.AddRange(studentNotifications);
                 notifications.AddRange(instructorNotifications);
             }
 
             await SaveNotificationsAsync(context, notifications);
+        }
+        */
+
+        private async Task CheckAndGenerateNotificationsAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var upcomingEntries = await GetUpcomingScheduleEntriesAsync(context);
+
+            if (!upcomingEntries.Any()) return;
+
+            _logger.LogInformation(
+                "Found {Count} upcoming schedule entries. Generating notifications...",
+                upcomingEntries.Count);
+
+            // Fire all student AND instructor notification tasks at the same time
+            var tasks = upcomingEntries.Select(entry => BuildNotificationsForEntryAsync(context, entry));
+
+            // New version on this part
+            var results = await Task.WhenAll(tasks);
+            var notifications = results.SelectMany(n => n).ToList();
+
+            await SaveNotificationsAsync(context, notifications);
+        }
+
+        // New helper: builds both student and instructor notifications in parallel
+        private async Task<List<Notification>> BuildNotificationsForEntryAsync(
+            AppDbContext context, ScheduleEntry entry)
+        {
+            var studentTask = BuildStudentNotificationsAsync(context, entry);
+            var instructorTask = BuildInstructorNotificationsAsync(context, entry);
+
+            var results = await Task.WhenAll(studentTask, instructorTask);
+
+            return results.SelectMany(n => n).ToList();
         }
 
         //gets schedule entries starting in ~30 minutes
