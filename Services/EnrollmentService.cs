@@ -281,5 +281,85 @@ namespace CourseManager.Services
                 Grade = enrollment.Grade
             };
         }
+
+        //This is the new missed feature:
+
+        // -------------------------------------------------------
+        // REGISTER DIRECTLY TO A COURSE
+        // -------------------------------------------------------
+        public async Task<EnrollmentResponseDto> RegisterToCourseAsync(int courseId, int studentId)
+        {
+            var student = await _context.Users.FindAsync(studentId);
+            if (student == null)
+                throw new KeyNotFoundException($"User with ID {studentId} not found.");
+            if (student.UserType != UserType.Student)
+                throw new InvalidOperationException("Only students can enroll in courses.");
+            if (!student.IsActive)
+                throw new InvalidOperationException("Inactive students cannot enroll.");
+
+            var course = await _context.Courses
+                .Include(c => c.Enrollments)
+                .Include(c => c.Subject)
+                .FirstOrDefaultAsync(c => c.Id == courseId);
+
+            if (course == null)
+                throw new KeyNotFoundException($"Course with ID {courseId} not found.");
+
+            // Check study mode compatibility
+            if (course.Form != CourseForm.Mixed)
+            {
+                if (student.StudyMode == StudyMode.FullTime && course.Form != CourseForm.FullTime)
+                    throw new InvalidOperationException(
+                        "Full-time student cannot enroll in a part-time course.");
+                if (student.StudyMode == StudyMode.PartTime && course.Form != CourseForm.PartTime)
+                    throw new InvalidOperationException(
+                        "Part-time student cannot enroll in a full-time course.");
+            }
+
+            // Check capacity
+            if (course.Enrollments.Count >= course.MaxStudents)
+                throw new InvalidOperationException(
+                    $"Course '{course.CourseCode}' is full ({course.MaxStudents}/{course.MaxStudents}).");
+
+            // Check not already enrolled
+            var alreadyEnrolled = await _context.Enrollments
+                .AnyAsync(e => e.StudentId == studentId && e.CourseId == courseId);
+            if (alreadyEnrolled)
+                throw new InvalidOperationException("Student is already enrolled in this course.");
+
+            var enrollment = new Enrollment
+            {
+                StudentId = studentId,
+                CourseId = courseId
+            };
+
+            _context.Enrollments.Add(enrollment);
+            await _context.SaveChangesAsync();
+
+            // Reload with navigation properties for mapping
+            var reloaded = await _context.Enrollments
+                .Include(e => e.Student)
+                .Include(e => e.Course)
+                    .ThenInclude(c => c.Subject)
+                .FirstOrDefaultAsync(e => e.Id == enrollment.Id);
+
+            return MapToResponse(reloaded!, reloaded!.Course, reloaded.Student);
+        }
+
+        // -------------------------------------------------------
+        // UNREGISTER DIRECTLY FROM A COURSE
+        // -------------------------------------------------------
+        public async Task UnregisterFromCourseAsync(int courseId, int studentId)
+        {
+            var enrollment = await _context.Enrollments
+                .FirstOrDefaultAsync(e => e.StudentId == studentId && e.CourseId == courseId);
+
+            if (enrollment == null)
+                throw new InvalidOperationException("Student is not enrolled in this course.");
+
+            _context.Enrollments.Remove(enrollment);
+            await _context.SaveChangesAsync();
+        }
+
     }
 }

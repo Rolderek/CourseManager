@@ -189,5 +189,85 @@ namespace CourseManager.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
+
+        /// <summary>Register a student directly to a course</summary>
+        /// <remarks>
+        /// Directly registers a student to a specific course.
+        /// 
+        /// **Rules checked:**
+        /// - Student must be active
+        /// - Student must not already be enrolled in this course
+        /// - Course must not be full
+        /// - Study mode must be compatible (full-time/part-time/mixed)
+        ///
+        /// **Example request:**
+        /// ```json
+        /// {
+        ///   "studentId": 5
+        /// }
+        /// ```
+        /// </remarks>
+        /// <param name="courseId">The unique ID of the course</param>
+        /// <param name="dto">Student ID to register</param>
+        /// <response code="200">Student successfully registered</response>
+        /// <response code="400">Validation error (e.g. course full, study mode mismatch)</response>
+        /// <response code="404">Course or student not found</response>
+        [HttpPost("{courseId}/register")]
+        [ProducesResponseType(typeof(EnrollmentResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> RegisterToCourse(int courseId, [FromBody] CourseRegistrationDto dto)
+        {
+            try
+            {
+                var result = await _enrollmentService.RegisterToCourseAsync(courseId, dto.StudentId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>Unregister a student from a course</summary>
+        /// <remarks>
+        /// Directly removes a student's enrollment from a specific course.
+        ///
+        /// **Example request:**
+        /// ```json
+        /// {
+        ///   "studentId": 5
+        /// }
+        /// ```
+        /// </remarks>
+        /// <param name="courseId">The unique ID of the course</param>
+        /// <param name="dto">Student ID to unregister</param>
+        /// <response code="204">Student successfully unregistered</response>
+        /// <response code="400">Student is not enrolled in this course</response>
+        /// <response code="404">Course or student not found</response>
+        [HttpPost("{courseId}/unregister")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UnregisterFromCourse(int courseId, [FromBody] CourseRegistrationDto dto)
+        {
+            try
+            {
+                await _enrollmentService.UnregisterFromCourseAsync(courseId, dto.StudentId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
     }
 }

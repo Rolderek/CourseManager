@@ -19,6 +19,7 @@ namespace CourseManager.BackgroundServices
             _logger = logger;
         }
 
+
         //orchestrates, nothing else
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
