@@ -4,7 +4,7 @@ using CourseManager.DTOs.Schedule;
 using CourseManager.Services;
 using Microsoft.AspNetCore.Mvc;
 
-
+//ez látszik?
 //THERE WAS TWO CONSTRUCTOR, THIS WAS REPAIRED :D
 namespace CourseManager.Controllers
 {
